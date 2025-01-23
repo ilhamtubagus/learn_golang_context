@@ -3,6 +3,8 @@ package learn_golang_context
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"sync"
 	"testing"
 )
 
@@ -38,4 +40,46 @@ func TestWithValue(t *testing.T) {
 	fmt.Println(contextF.Value("c")) // Output: C
 	fmt.Println(contextF.Value("b")) // Output: nil, different parent A -> C -> F
 	fmt.Println(contextA.Value("b")) // Output: nil, parent cant invoke a child value
+}
+
+func CreateCounter(ctx context.Context, wg *sync.WaitGroup) chan int {
+	destination := make(chan int)
+	wg.Add(1)
+	go func() {
+		defer close(destination)
+		counter := 1
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("Counter goroutine stopped")
+				wg.Done()
+				return
+			default:
+				destination <- counter
+				counter++
+			}
+		}
+	}()
+
+	return destination
+}
+
+func TestContextWithCancel(t *testing.T) {
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
+
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+	destination := CreateCounter(ctx, wg)
+	for n := range destination {
+		fmt.Println("Counter", n)
+		if n == 10 {
+			break
+		}
+	}
+	// cancel the context to stop the goroutine
+	cancel()
+
+	wg.Wait()
+
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
 }
