@@ -52,7 +52,7 @@ func CreateCounter(ctx context.Context, wg *sync.WaitGroup) chan int {
 		for {
 			select {
 			case <-ctx.Done():
-				fmt.Println("Counter goroutine stopped")
+				fmt.Println("Counter goroutine stopped", ctx)
 				wg.Done()
 				return
 			default:
@@ -90,7 +90,26 @@ func TestContextWithTimeout(t *testing.T) {
 	fmt.Println("Total goroutine:", runtime.NumGoroutine())
 
 	wg := &sync.WaitGroup{}
+	// cancel the context after x duration from the start (in this case 3 seconds)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel() // best practice to invoke cancel even when using context.WithTimeout
+
+	destination := CreateCounter(ctx, wg)
+	for n := range destination {
+		fmt.Println("Counter", n)
+	}
+
+	wg.Wait()
+
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
+}
+
+func TestContextWithDeadline(t *testing.T) {
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
+
+	wg := &sync.WaitGroup{}
+	// cancel the context for the specified time
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(4*time.Second))
 	defer cancel() // best practice to invoke cancel even when using context.WithTimeout
 
 	destination := CreateCounter(ctx, wg)
