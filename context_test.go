@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestContext(t *testing.T) {
@@ -57,6 +58,7 @@ func CreateCounter(ctx context.Context, wg *sync.WaitGroup) chan int {
 			default:
 				destination <- counter
 				counter++
+				time.Sleep(1 * time.Second) // simulate slow process
 			}
 		}
 	}()
@@ -72,12 +74,29 @@ func TestContextWithCancel(t *testing.T) {
 	destination := CreateCounter(ctx, wg)
 	for n := range destination {
 		fmt.Println("Counter", n)
-		if n == 10 {
+		if n == 5 {
 			break
 		}
 	}
 	// cancel the context to stop the goroutine
 	cancel()
+
+	wg.Wait()
+
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
+}
+
+func TestContextWithTimeout(t *testing.T) {
+	fmt.Println("Total goroutine:", runtime.NumGoroutine())
+
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel() // best practice to invoke cancel even when using context.WithTimeout
+
+	destination := CreateCounter(ctx, wg)
+	for n := range destination {
+		fmt.Println("Counter", n)
+	}
 
 	wg.Wait()
 
